@@ -132,3 +132,24 @@ def explain_non_determinism() -> dict[str, Any]:
         ),
         "seed_guarantee": "best-effort across distributed inference engines",
     }
+
+
+class SafeStreamDecoder:
+    def __init__(self, encoding: str = "utf-8") -> None:
+        import codecs
+        self._decoder = codecs.getincrementaldecoder(encoding)(errors="strict")
+
+    def decode_chunk(self, chunk_bytes: bytes, final: bool = False) -> str:
+        return self._decoder.decode(chunk_bytes, final=final)
+
+
+def generate_model_tradeoff_report() -> dict[str, Any]:
+    return {
+        "schema_version": "1.0",
+        "models": {
+            "small_8b": {"parameters_billions": 8, "ttft_relative": 1.0, "tpot_tokens_per_sec": 120, "kv_cache_mb_per_k_context": 16},
+            "medium_70b": {"parameters_billions": 70, "ttft_relative": 3.8, "tpot_tokens_per_sec": 35, "kv_cache_mb_per_k_context": 128},
+        },
+        "tradeoff_rule": "Smaller models minimize TTFT and maximize throughput under tight SLOs; larger models increase reasoning capacity at the cost of higher memory footprint and TTFT.",
+    }
+

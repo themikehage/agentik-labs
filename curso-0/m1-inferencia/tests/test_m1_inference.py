@@ -22,6 +22,8 @@ from solution import (
     LatencyProfiler,
     generate_tokenization_report,
     explain_non_determinism,
+    SafeStreamDecoder,
+    generate_model_tradeoff_report,
 )
 
 
@@ -171,3 +173,54 @@ class TestRA14TailLatencyPercentiles:
         result = profiler.profile_stream(gen)
 
         assert result.tpot_seconds < result.itl_p95_seconds
+
+
+class TestRA13StreamingUtf8Decoder:
+    """
+    RA-1.3 (Stream Chunking): Decodificación segura en streaming contra multi-byte UTF-8 split.
+    """
+
+    def test_positive_utf8_multibyte_split_handled_safely(self) -> None:
+        """
+        [RA-1.3 POSITIVE] Confirma que chunks de bytes partidos en el límite de un
+        carácter multi-byte (ej. 'ñ' = b'\\xc3\\xb1') se reconstruyen sin lanzar error.
+        """
+        decoder = SafeStreamDecoder()
+        chunk1 = b"Espa\xc3"
+        chunk2 = b"\xb1ol en streaming: \xf0\x9f\xa4"
+        chunk3 = b"\x96"
+
+        part1 = decoder.decode_chunk(chunk1)
+        part2 = decoder.decode_chunk(chunk2)
+        part3 = decoder.decode_chunk(chunk3, final=True)
+
+        full_text = part1 + part2 + part3
+        assert full_text == "Español en streaming: 🤖"
+
+    def test_negative_naive_decoder_without_buffer_fails(self) -> None:
+        """
+        [RA-1.3 NEGATIVE] Demuestra que un decoder ingenuo sin buffer falla con
+        UnicodeDecodeError al recibir un chunk parcial multi-byte.
+        """
+        chunk_split = b"Espa\xc3"
+        with pytest.raises(UnicodeDecodeError):
+            chunk_split.decode("utf-8")
+
+
+class TestRA14ModelTradeoffReportSchema:
+    """
+    RA-1.4: Informe técnico de trade-offs de tamaño de modelo y latencia validado por esquema.
+    """
+
+    def test_positive_tradeoff_report_contains_required_models(self) -> None:
+        """
+        [RA-1.4 POSITIVE] Valida que el informe contenga modelos small y medium con
+        métricas de TTFT relativo y consumo KV cache.
+        """
+        report = generate_model_tradeoff_report()
+        assert report["schema_version"] == "1.0"
+        assert "small_8b" in report["models"]
+        assert "medium_70b" in report["models"]
+        assert report["models"]["medium_70b"]["ttft_relative"] > report["models"]["small_8b"]["ttft_relative"]
+        assert len(report["tradeoff_rule"]) > 20
+
