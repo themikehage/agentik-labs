@@ -6,7 +6,7 @@ on:
       course_id:
         required: true
         type: string
-        description: "Course identifier (e.g., curso-0)"
+        description: "Course identifier or slug (e.g., curso-0, llm-production-fundamentals)"
       student_repo:
         required: true
         type: string
@@ -15,6 +15,15 @@ on:
         required: true
         type: string
         description: "Commit SHA being certified"
+      agentik_api_url:
+        required: false
+        type: string
+        default: "https://api.agentik.im"
+        description: "Agentik API base URL"
+    secrets:
+      AGENTIK_SUITE_TOKEN:
+        required: false
+        description: "Read-only token to download private official hidden suite"
     outputs:
       report_hash:
         description: "Cryptographic SHA-256 hash of the test execution report"
@@ -36,8 +45,16 @@ jobs:
       attestation_status: ${{ steps.report.outputs.attestation_status }}
 
     steps:
-      - name: Check out lab template
+      - name: Check out student repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+
+      - name: Download official hidden test suite
+        if: ${{ secrets.AGENTIK_SUITE_TOKEN != '' }}
+        run: |
+          mkdir -p tests/hidden
+          git clone --depth 1 https://x-access-token:${{ secrets.AGENTIK_SUITE_TOKEN }}@github.com/themikehage/agentik-hidden-suite.git tests/hidden/suite || true
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
@@ -62,6 +79,7 @@ jobs:
             REPORT_HASH=$(sha256sum report.json | awk '{print $1}')
             echo "report_hash=$REPORT_HASH" >> $GITHUB_OUTPUT
           else
+            REPORT_HASH="none"
             echo "report_hash=none" >> $GITHUB_OUTPUT
           fi
           if [ "$TESTS_FAILED" = "true" ]; then
@@ -70,3 +88,31 @@ jobs:
           else
             echo "attestation_status=success" >> $GITHUB_OUTPUT
           fi
+
+      - name: Request GitHub OIDC Token
+        id: oidc
+        if: ${{ success() && steps.report.outputs.attestation_status == 'success' }}
+        run: |
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+            OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=agentik-attestation" \
+              -H "User-Agent: actions/oidc-client" \
+              -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" | jq -r '.value')
+            echo "::add-mask::$OIDC_TOKEN"
+            echo "token=$OIDC_TOKEN" >> $GITHUB_OUTPUT
+          else
+            echo "OIDC token request environment variables not available."
+          fi
+
+      - name: Submit Attestation to Agentik API
+        if: ${{ success() && steps.oidc.outputs.token != '' }}
+        env:
+          API_URL: ${{ inputs.agentik_api_url }}
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          COURSE_SLUG: ${{ inputs.course_id }}
+          REPORT_HASH: ${{ steps.report.outputs.report_hash }}
+        run: |
+          REPORT_CONTENT=$(cat report.json)
+          curl -fsSL -X POST "${API_URL}/api/attestation" \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"courseSlug\":\"${COURSE_SLUG}\",\"reportHash\":\"${REPORT_HASH}\",\"report\":${REPORT_CONTENT}}"
