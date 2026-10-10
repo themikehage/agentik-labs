@@ -34,7 +34,7 @@ dev = [
 packages = ["labkit"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "curso-0"]
+testpaths = ["tests", "curso-0", "curso-2"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --disable-socket --allow-unix-socket"
