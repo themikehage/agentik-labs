@@ -1,0 +1,72 @@
+name: Official Certification Attestation
+
+on:
+  workflow_call:
+    inputs:
+      course_id:
+        required: true
+        type: string
+        description: "Course identifier (e.g., curso-0)"
+      student_repo:
+        required: true
+        type: string
+        description: "Repository owner/name of student submission"
+      commit_sha:
+        required: true
+        type: string
+        description: "Commit SHA being certified"
+    outputs:
+      report_hash:
+        description: "Cryptographic SHA-256 hash of the test execution report"
+        value: ${{ jobs.certify.outputs.report_hash }}
+      attestation_status:
+        description: "Final outcome (success or failure)"
+        value: ${{ jobs.certify.outputs.attestation_status }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  certify:
+    name: Run Official Hidden & Parametric Suite
+    runs-on: ubuntu-latest
+    outputs:
+      report_hash: ${{ steps.report.outputs.report_hash }}
+      attestation_status: ${{ steps.report.outputs.attestation_status }}
+
+    steps:
+      - name: Check out lab template
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run verification suite
+        id: test_run
+        run: |
+          uv run pytest -v --json-report --json-report-file=report.json || echo "TESTS_FAILED=true" >> $GITHUB_ENV
+
+      - name: Compute report digest and status
+        id: report
+        run: |
+          if [ -f report.json ]; then
+            REPORT_HASH=$(sha256sum report.json | awk '{print $1}')
+            echo "report_hash=$REPORT_HASH" >> $GITHUB_OUTPUT
+          else
+            echo "report_hash=none" >> $GITHUB_OUTPUT
+          fi
+          if [ "$TESTS_FAILED" = "true" ]; then
+            echo "attestation_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "attestation_status=success" >> $GITHUB_OUTPUT
+          fi
