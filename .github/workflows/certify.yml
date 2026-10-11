@@ -54,7 +54,7 @@ jobs:
         if: ${{ secrets.AGENTIK_SUITE_TOKEN != '' }}
         run: |
           mkdir -p tests/hidden
-          git clone --depth 1 https://x-access-token:${{ secrets.AGENTIK_SUITE_TOKEN }}@github.com/themikehage/agentik-hidden-suite.git tests/hidden/suite || true
+          git clone --depth 1 https://x-access-token:${{ secrets.AGENTIK_SUITE_TOKEN }}@github.com/themikehage/agentik-hidden-suite.git tests/hidden/suite
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
@@ -70,7 +70,26 @@ jobs:
       - name: Run verification suite
         id: test_run
         run: |
-          uv run pytest -v --json-report --json-report-file=report.json || echo "TESTS_FAILED=true" >> $GITHUB_ENV
+          COURSE="${{ inputs.course_id }}"
+          case "$COURSE" in
+            "llm-production-fundamentals"|"curso-0"|"0")
+              TEST_TARGET="curso-0/m7-capstone/tests"
+              ;;
+            "multiagent-pipeline-engineer"|"curso-1"|"1")
+              TEST_TARGET="curso-1/m7-capstone/tests"
+              ;;
+            "mcp-expert"|"curso-2"|"2")
+              TEST_TARGET="curso-2/m7-capstone/tests"
+              ;;
+            "forward-deployed-engineer"|"curso-3"|"3")
+              TEST_TARGET="curso-3/m7-capstone/tests"
+              ;;
+            *)
+              TEST_TARGET="${COURSE}"
+              ;;
+          esac
+          echo "Running verification suite for target: $TEST_TARGET"
+          uv run pytest -v --json-report --json-report-file=report.json "$TEST_TARGET" || echo "TESTS_FAILED=true" >> $GITHUB_ENV
 
       - name: Compute report digest and status
         id: report
