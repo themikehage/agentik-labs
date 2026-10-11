@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from typing import Any, Iterator, Sequence
 from labkit.replay import LLMMessage, LLMResponse, LLMStreamChunk
+from labkit.seed import derive_seed
 
 
 class SimClient:
@@ -26,13 +27,17 @@ class SimClient:
         self.model = model
 
         # Internal deterministic pseudo-random generator
-        seed_int = hash(seed) if isinstance(seed, str) else int(seed)
-        self._rng = random.Random(seed_int)
+        self._rng = random.Random(self._resolve_seed(seed))
         self._call_count: int = 0
 
+    @staticmethod
+    def _resolve_seed(seed: int | str) -> int:
+        if isinstance(seed, str):
+            return derive_seed(seed, "sim-client")
+        return int(seed)
+
     def reset(self) -> None:
-        seed_int = hash(self.seed) if isinstance(self.seed, str) else int(self.seed)
-        self._rng = random.Random(seed_int)
+        self._rng = random.Random(self._resolve_seed(self.seed))
         self._call_count = 0
 
     def complete(self, prompt: str | Sequence[LLMMessage], **kwargs: Any) -> LLMResponse:
