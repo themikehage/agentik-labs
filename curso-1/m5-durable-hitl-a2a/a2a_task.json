@@ -1,0 +1,30 @@
+{
+  "task_id": "task-a2a-789",
+  "client_agent": {
+    "agent_id": "orchestrator-alpha",
+    "version": "1.0.0",
+    "capabilities": ["task_delegation", "state_verification"]
+  },
+  "target_agent": {
+    "agent_id": "billing-subagent",
+    "version": "2.1.0",
+    "capabilities": ["invoice_generation", "payment_settlement"]
+  },
+  "task_spec": {
+    "action": "settle_payment",
+    "parameters": {
+      "invoice_id": "inv-2026-0042",
+      "amount_usd": 1250.00,
+      "currency": "USD"
+    },
+    "idempotency_key": "task-a2a-789:step-1:settle_payment"
+  },
+  "state_handoff": {
+    "structured_context": {
+      "customer_tier": "enterprise",
+      "authorized_by": "finance-admin"
+    },
+    "contains_raw_history": false
+  },
+  "lifecycle_state": "submitted"
+}

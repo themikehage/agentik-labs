@@ -1,0 +1,50 @@
+{
+  "tasks": [
+    {
+      "task_id": "TSK-01",
+      "name": "Extracción secuencial de cláusulas y resumen",
+      "has_sequential_dependencies": true,
+      "requires_dynamic_subtasks": false,
+      "pattern": "prompt_chaining",
+      "discard_agent_reason": "Ruta de control fija y dependencias lineales estrictas donde un bucle autónomo añade varianza y latencia innecesarias."
+    },
+    {
+      "task_id": "TSK-02",
+      "name": "Enrutamiento de consultas por tipología de siniestro",
+      "has_sequential_dependencies": false,
+      "requires_dynamic_subtasks": false,
+      "pattern": "routing",
+      "discard_agent_reason": "Clasificación disjunta de un solo paso; un agente autónomo incrementaría el coste sin beneficio."
+    },
+    {
+      "task_id": "TSK-03",
+      "name": "Verificación paralela de 5 secciones independientes de póliza",
+      "has_sequential_dependencies": false,
+      "requires_dynamic_subtasks": false,
+      "pattern": "parallelization",
+      "discard_agent_reason": "Las subtareas son mutuamente independientes y se benefician de concurrencia aislada (sectioning) sin estado compartido."
+    },
+    {
+      "task_id": "TSK-04",
+      "name": "Coordinación dinámica de peritajes con trabajadores especializados",
+      "has_sequential_dependencies": false,
+      "requires_dynamic_subtasks": true,
+      "pattern": "orchestrator_workers",
+      "discard_agent_reason": "Exige descomposición centralizada de subtareas variables pero con límites de ejecución gobernados por el orquestador."
+    },
+    {
+      "task_id": "TSK-05",
+      "name": "Generación y refinamiento iterativo de código con feedback de tests",
+      "has_sequential_dependencies": true,
+      "requires_dynamic_subtasks": false,
+      "pattern": "evaluator_optimizer",
+      "discard_agent_reason": "El criterio de parada está fijado por la suite de evaluación externa; no requiere exploración libre de herramientas."
+    }
+  ],
+  "agent_discard_criteria": [
+    "reproducibilidad_estricta",
+    "baja_latencia_p95",
+    "coste_acotado_predecible",
+    "ruta_de_control_fija"
+  ]
+}

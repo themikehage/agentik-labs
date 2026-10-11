@@ -1,0 +1,22 @@
+{
+  "problem_id": "c1-m4-distributed-aggregation",
+  "task_type": "deterministic_numeric_partitioning",
+  "problem_description": "Map-reduce aggregation of 1,000,000 telemetry metrics into partitioned statistical summaries with mathematical determinism.",
+  "chosen_topology": "split-and-merge",
+  "rejected_topologies": [
+    {
+      "topology": "voting",
+      "rejection_reason": "Voting / consensus introduces nondeterministic stochastic aggregation overhead, 3x token multiplier, and is fundamentally unsuitable for exact arithmetic reduction."
+    },
+    {
+      "topology": "orchestrator-workers",
+      "rejection_reason": "Dynamic decomposition adds single-orchestrator scheduling latency bottlenecks and non-constant memory overhead when batch boundaries are statically known."
+    }
+  ],
+  "rationale": "Split-and-merge provides deterministic parallel execution with bounded memory footprint and commutative superstep state reduction.",
+  "tradeoffs": {
+    "latency": "O(log N) aggregation depth with parallel execution across shards.",
+    "cost": "Minimal token and compute overhead with zero redundant worker generation.",
+    "deterministic_guarantee": "Bit-exact commutative reduction invariant to shard completion order."
+  }
+}

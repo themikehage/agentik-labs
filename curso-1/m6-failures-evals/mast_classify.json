@@ -1,0 +1,34 @@
+{
+  "taxonomy": "MAST",
+  "version": "1.0",
+  "incidents": [
+    {
+      "incident_id": "INC-001",
+      "symptom": "Agent emitted valid SQL but failed to apply migration to isolated tenant schema due to unstated implicit assumption.",
+      "category": "SPECIFICATION",
+      "root_cause": "Under-specified system prompt regarding tenant schema isolation parameters.",
+      "remediation": "Explicit negative boundaries and schema contract injection."
+    },
+    {
+      "incident_id": "INC-002",
+      "symptom": "Agent B overwrote Agent A's working memory during concurrent shared resource execution.",
+      "category": "COORDINATION",
+      "root_cause": "Absence of optimistic concurrency control or commutative state reducer.",
+      "remediation": "Enforce OCC versioning and order-invariant superstep reduction."
+    },
+    {
+      "incident_id": "INC-003",
+      "symptom": "Agent reported success in chat payload but external database row was never created.",
+      "category": "VERIFICATION",
+      "root_cause": "Reliance on agent self-reporting rather than external observable postcondition grader.",
+      "remediation": "Independent environment state inspection before task finalization."
+    }
+  ],
+  "orchestrabench_caveats": {
+    "scope": "Controlled synthetic probe benchmark",
+    "methodological_caveats": [
+      "Evaluates isolated synthetic chain recovery, not domain-general stochastic resilience.",
+      "Recovery success rates in synthetic loops cannot be directly extrapolated as unconditional production SLA guarantees."
+    ]
+  }
+}
