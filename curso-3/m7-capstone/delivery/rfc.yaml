@@ -1,0 +1,23 @@
+titulo: "RFC-099: Enterprise Insurance Intelligence Platform"
+invariantes:
+  - "Cero propagacion de PII en texto plano hacia proveedores LLM externos."
+  - "Presupuestos duros enforced a nivel de virtual key sin desbordamiento de gasto."
+  - "Tiempos de respuesta de guardrails deterministas <= 20ms."
+dependencias_datos:
+  - "Boveda de seudonimizacion PostgreSQL para custodia de tokens."
+  - "API de polizas corporativa en red privada VPC Endpoint."
+metricas:
+  - nombre: "tasa_deteccion_nif_presidio"
+    umbral_numerico: 0.92
+    unidad: "recall"
+  - nombre: "tpr_guardrails_adversariales"
+    umbral_numerico: 0.85
+    unidad: "ratio"
+  - nombre: "fpr_guardrails_falsas_alarmas"
+    umbral_numerico: 0.05
+    unidad: "ratio"
+non_goals:
+  - "No emitir indemnizaciones automaticas superiores a 3000 EUR sin revision pericial."
+  - "No prometer 100% de deteccion de entidades en texto desestructurado."
+supuestos:
+  - "El 90% de las consultas provienen de analistas internos autenticados via OIDC."
