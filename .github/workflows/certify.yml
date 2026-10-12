@@ -46,7 +46,7 @@ jobs:
 
     steps:
       - name: Check out student repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.commit_sha }}
 
@@ -57,7 +57,7 @@ jobs:
           git clone --depth 1 https://x-access-token:${{ secrets.AGENTIK_SUITE_TOKEN }}@github.com/themikehage/agentik-hidden-suite.git tests/hidden/suite
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
         with:
           version: "latest"
 
@@ -69,6 +69,9 @@ jobs:
 
       - name: Run verification suite
         id: test_run
+        env:
+          AGENTIK_STUDENT_ID: ${{ github.actor }}
+          AGENTIK_STUDENT_REPO: ${{ inputs.student_repo }}
         run: |
           COURSE="${{ inputs.course_id }}"
           case "$COURSE" in
