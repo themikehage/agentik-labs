@@ -32,3 +32,26 @@ uv sync
 # Run all deterministic tests (network socket blocked by default)
 uv run pytest
 ```
+
+## Practitioner Certification & Automated Attestation
+
+Students who have obtained the **Agentik Certified Associate** credential can unlock the **Practitioner** level by completing the course capstone:
+
+1. **Use this template**: Create your private or public repository from `themikehage/agentik-labs`.
+2. **Select your course**: In `.github/workflows/attest.yml`, ensure `course_id` matches the track you are certifying:
+   - `llm-production-fundamentals` (Course 0)
+   - `multiagent-pipeline-engineer` (Course 1)
+   - `mcp-expert` (Course 2 — default)
+   - `forward-deployed-engineer` (Course 3)
+3. **Solve the capstone**: Complete the implementation under `curso-X/m7-capstone/`. Verify locally:
+   ```bash
+   uv run pytest curso-X/m7-capstone/tests
+   ```
+4. **Push to main**:
+   ```bash
+   git add .
+   git commit -m "feat(capstone): complete practitioner requirements"
+   git push origin main
+   ```
+5. **Automatic Attestation**: GitHub Actions will automatically trigger the official certification workflow and submit a cryptographic OIDC token to the Agentik API, issuing your verifiable Practitioner credential.
+

@@ -1,0 +1,21 @@
+name: Practitioner Certification Attestation
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  attest:
+    name: Attest Official Capstone
+    if: github.repository != 'themikehage/agentik-labs'
+    uses: themikehage/agentik-labs/.github/workflows/certify.yml@aa6ef9df828a41b1b7f82dd9d1a4d3062d5a3e4c
+    with:
+      course_id: mcp-expert
+      student_repo: ${{ github.repository }}
+      commit_sha: ${{ github.sha }}
