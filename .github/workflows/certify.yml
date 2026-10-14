@@ -48,7 +48,8 @@ jobs:
       - name: Check out student repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ inputs.commit_sha }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Download official test suite
         env:
@@ -58,26 +59,31 @@ jobs:
             echo "::error::AGENTIK_SUITE_TOKEN is required. Attestation never falls back to tests committed in the student repository."
             exit 1
           fi
-          git clone --depth 1 "https://x-access-token:${AGENTIK_SUITE_TOKEN}@github.com/themikehage/agentik-hidden-suite.git" "$RUNNER_TEMP/official-suite"
+          git -c "http.extraheader=Authorization: Basic $(printf 'x-access-token:%s' "$AGENTIK_SUITE_TOKEN" | base64 -w0)"             clone --depth 1 https://github.com/themikehage/agentik-hidden-suite.git "$RUNNER_TEMP/official-suite"
+          rm -rf "$RUNNER_TEMP/official-suite/.git"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
         with:
-          version: "latest"
+          version: "0.5.31"
 
       - name: Set up Python 3.12
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --extra dev --frozen
 
       - name: Run verification suite
         id: test_run
         env:
           AGENTIK_STUDENT_ID: ${{ github.actor }}
-          AGENTIK_STUDENT_REPO: ${{ inputs.student_repo }}
+          AGENTIK_STUDENT_REPO: ${{ github.repository }}
+          COURSE: ${{ inputs.course_id }}
         run: |
-          COURSE="${{ inputs.course_id }}"
+          if ! printf '%s' "$COURSE" | grep -Eq '^[a-z0-9-]{1,40}$'; then
+            echo "::error::Invalid course_id."
+            exit 1
+          fi
           case "$COURSE" in
             "llm-production-fundamentals"|"curso-0"|"0")
               COURSE_DIR="curso-0"
@@ -110,17 +116,26 @@ jobs:
           rm -rf "$TEST_TARGET"
           cp -R "$OFFICIAL_TESTS" "$TEST_TARGET"
           echo "Running official suite for target: $TEST_TARGET"
-          uv run pytest -v --json-report --json-report-file=report.json "$TEST_TARGET" || echo "TESTS_FAILED=true" >> $GITHUB_ENV
+          # Student code must not be able to write runner command files or read the suite token.
+          GH_ENV_FILE="$GITHUB_ENV"; GH_PATH_FILE="$GITHUB_PATH"
+          rm -f report.json
+          set +e
+          env -u GITHUB_ENV -u GITHUB_PATH -u GITHUB_OUTPUT -u GITHUB_STATE -u AGENTIK_SUITE_TOKEN -u RUNNER_TEMP             uv run --frozen pytest -q --tb=no -p no:cacheprovider             --json-report --json-report-file=report.json "$TEST_TARGET"
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ] || [ ! -s report.json ]; then
+            echo "TESTS_FAILED=true" >> "$GH_ENV_FILE"
+          fi
 
       - name: Compute report digest and status
         id: report
         run: |
-          if [ -f report.json ]; then
+          if [ -s report.json ] && [ "$TESTS_FAILED" != "true" ]; then
             REPORT_HASH=$(sha256sum report.json | awk '{print $1}')
             echo "report_hash=$REPORT_HASH" >> $GITHUB_OUTPUT
           else
-            REPORT_HASH="none"
             echo "report_hash=none" >> $GITHUB_OUTPUT
+            TESTS_FAILED=true
           fi
           if [ "$TESTS_FAILED" = "true" ]; then
             echo "attestation_status=failed" >> $GITHUB_OUTPUT
