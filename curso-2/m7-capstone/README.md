@@ -14,7 +14,7 @@
 
 - `solution.py`: Implementación completa de `EnterpriseMcpGateway`.
 - `tests/test_m7_capstone_public.py`: Batería de pruebas de conformidad públicas.
-- `tests/hidden/test_m7_capstone_hidden.py`: Suite oculta de certificación ejecutada por el workflow oficial `certify.yml` para emisión de credencial Practitioner.
+- La suite oficial de certificación es privada: la ejecuta únicamente el workflow `certify.yml` (no se distribuye en esta plantilla).
 
 ## Ejecución de Pruebas
 
@@ -22,6 +22,4 @@
 # Pruebas públicas locales del estudiante
 uv run pytest -v curso-2/m7-capstone/tests/test_m7_capstone_public.py
 
-# Suite completa de atestación
-uv run pytest -v curso-2/m7-capstone/tests/
 ```

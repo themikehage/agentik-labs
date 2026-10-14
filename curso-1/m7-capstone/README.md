@@ -1,4 +1,4 @@
-# Laboratorio M7: Capstone Multiagent Orchestrator & Suite Oculta
+# Laboratorio M7: Capstone Multiagent Orchestrator
 
 ## Objetivos de Aprendizaje (Resultados de Aprendizaje)
 - **RA-7.1**: Validación formal de `DESIGN.md` contra esquema estricto (núcleo de 7 pilares, elección de 2 extensiones, métricas numéricas y consecuencias con signo `+` y `-`).
@@ -12,6 +12,4 @@
 # Tests públicos
 uv run pytest -v curso-1/m7-capstone/tests/test_c1_m7_capstone_public.py
 
-# Suite oculta oficial de certificación
-uv run pytest -v curso-1/m7-capstone/tests/hidden/test_c1_m7_capstone_hidden.py
 ```

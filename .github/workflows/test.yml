@@ -32,5 +32,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev
 
+      # Capstone tests need the learner's solution.py (a stub in this template), so they are
+      # validated against the private reference solution in agentik-hidden-suite, not here.
       - name: Run deterministic test suite
-        run: uv run pytest -v
+        run: uv run pytest -v --ignore-glob="curso-*/m7-capstone/*"

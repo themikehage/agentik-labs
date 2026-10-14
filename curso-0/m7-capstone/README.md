@@ -16,11 +16,10 @@
 - `DESIGN.md`: Documento de arquitectura, decisiones y presupuestos cuantitativos.
 - `solution.py`: Implementación de `EnterpriseInferenceService` y validador de diseño.
 - `tests/test_c0_m7_capstone_public.py`: Pruebas de aceptación públicas.
-- `tests/hidden/test_c0_m7_capstone_hidden.py`: Suite oculta de atestación oficial con parámetros sembrados por usuario.
+- La suite oficial de certificación es privada: la ejecuta únicamente el workflow `certify.yml` (no se distribuye en esta plantilla).
 
 ## Ejecución de Pruebas
 
 ```bash
 uv run pytest -v curso-0/m7-capstone/tests/test_c0_m7_capstone_public.py
-uv run pytest -v curso-0/m7-capstone/tests/hidden/test_c0_m7_capstone_hidden.py
 ```

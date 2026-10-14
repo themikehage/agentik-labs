@@ -43,7 +43,7 @@ Students who have obtained the **Agentik Certified Associate** credential can un
    - `multiagent-pipeline-engineer` (Course 1)
    - `mcp-expert` (Course 2 — default)
    - `forward-deployed-engineer` (Course 3)
-3. **Solve the capstone**: Complete the implementation under `curso-X/m7-capstone/`. Verify locally:
+3. **Solve the capstone**: `curso-X/m7-capstone/solution.py` ships as a stub (`NotImplementedError`). Implement it until the public tests pass; the official suite is private and runs only in the certification workflow. Verify locally:
    ```bash
    uv run pytest curso-X/m7-capstone/tests
    ```

@@ -22,8 +22,8 @@ on:
         description: "Agentik API base URL"
     secrets:
       AGENTIK_SUITE_TOKEN:
-        required: false
-        description: "Read-only token to download private official hidden suite"
+        required: true
+        description: "Read-only token to download the private official test suite"
     outputs:
       report_hash:
         description: "Cryptographic SHA-256 hash of the test execution report"
@@ -50,16 +50,15 @@ jobs:
         with:
           ref: ${{ inputs.commit_sha }}
 
-      - name: Download official hidden test suite
+      - name: Download official test suite
         env:
           AGENTIK_SUITE_TOKEN: ${{ secrets.AGENTIK_SUITE_TOKEN }}
         run: |
-          if [ -n "$AGENTIK_SUITE_TOKEN" ]; then
-            mkdir -p tests/hidden
-            git clone --depth 1 https://x-access-token:${AGENTIK_SUITE_TOKEN}@github.com/themikehage/agentik-hidden-suite.git tests/hidden/suite
-          else
-            echo "Sin AGENTIK_SUITE_TOKEN: se usan los tests commiteados en el repo."
+          if [ -z "$AGENTIK_SUITE_TOKEN" ]; then
+            echo "::error::AGENTIK_SUITE_TOKEN is required. Attestation never falls back to tests committed in the student repository."
+            exit 1
           fi
+          git clone --depth 1 "https://x-access-token:${AGENTIK_SUITE_TOKEN}@github.com/themikehage/agentik-hidden-suite.git" "$RUNNER_TEMP/official-suite"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
@@ -81,22 +80,36 @@ jobs:
           COURSE="${{ inputs.course_id }}"
           case "$COURSE" in
             "llm-production-fundamentals"|"curso-0"|"0")
-              TEST_TARGET="curso-0/m7-capstone/tests"
+              COURSE_DIR="curso-0"
+              echo "CANONICAL_COURSE_SLUG=llm-production-fundamentals" >> $GITHUB_ENV
               ;;
             "multiagent-pipeline-engineer"|"curso-1"|"1")
-              TEST_TARGET="curso-1/m7-capstone/tests"
+              COURSE_DIR="curso-1"
+              echo "CANONICAL_COURSE_SLUG=multiagent-pipeline-engineer" >> $GITHUB_ENV
               ;;
             "mcp-expert"|"curso-2"|"2")
-              TEST_TARGET="curso-2/m7-capstone/tests"
+              COURSE_DIR="curso-2"
+              echo "CANONICAL_COURSE_SLUG=mcp-expert" >> $GITHUB_ENV
               ;;
             "forward-deployed-engineer"|"curso-3"|"3")
-              TEST_TARGET="curso-3/m7-capstone/tests"
+              COURSE_DIR="curso-3"
+              echo "CANONICAL_COURSE_SLUG=forward-deployed-engineer" >> $GITHUB_ENV
               ;;
             *)
-              TEST_TARGET="${COURSE}"
+              echo "::error::Unknown course_id '$COURSE'. Only the four official capstones can be attested."
+              exit 1
               ;;
           esac
-          echo "Running verification suite for target: $TEST_TARGET"
+          TEST_TARGET="$COURSE_DIR/m7-capstone/tests"
+          OFFICIAL_TESTS="$RUNNER_TEMP/official-suite/$TEST_TARGET"
+          if [ ! -d "$OFFICIAL_TESTS" ]; then
+            echo "::error::Official suite for $COURSE_DIR not found."
+            exit 1
+          fi
+          # Only the official tests are executed: whatever the student committed under tests/ is discarded.
+          rm -rf "$TEST_TARGET"
+          cp -R "$OFFICIAL_TESTS" "$TEST_TARGET"
+          echo "Running official suite for target: $TEST_TARGET"
           uv run pytest -v --json-report --json-report-file=report.json "$TEST_TARGET" || echo "TESTS_FAILED=true" >> $GITHUB_ENV
 
       - name: Compute report digest and status
@@ -118,10 +131,10 @@ jobs:
 
       - name: Request GitHub OIDC Token
         id: oidc
-        if: ${{ success() && steps.report.outputs.attestation_status == 'success' }}
+        if: ${{ success() && steps.report.outputs.attestation_status == 'success' && env.CANONICAL_COURSE_SLUG != '' }}
         run: |
           if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
-            OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=agentik-attestation" \
+            OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=agentik-attestation:${CANONICAL_COURSE_SLUG}" \
               -H "User-Agent: actions/oidc-client" \
               -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" | jq -r '.value')
             echo "::add-mask::$OIDC_TOKEN"
@@ -135,7 +148,7 @@ jobs:
         env:
           API_URL: ${{ inputs.agentik_api_url }}
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
-          COURSE_SLUG: ${{ inputs.course_id }}
+          COURSE_SLUG: ${{ env.CANONICAL_COURSE_SLUG }}
           REPORT_HASH: ${{ steps.report.outputs.report_hash }}
         run: |
           REPORT_CONTENT=$(cat report.json)

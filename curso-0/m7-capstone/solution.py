@@ -1,17 +1,17 @@
+# STUB: implement the capstone here. See README.md. Run: uv run pytest curso-0/m7-capstone/tests
+"""C0-M7 capstone: enterprise inference microservice (student stub)."""
+
 from __future__ import annotations
 
-import hashlib
-import json
-import math
-import random
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from labkit.clock import VirtualClock
-from labkit.seed import derive_seed
 
 
 class EnterpriseServiceError(Exception):
+    """Service-level error carrying a human message and a stable error code."""
+
     def __init__(self, message: str, error_code: str = "SERVICE_ERROR") -> None:
         super().__init__(message)
         self.message = message
@@ -20,6 +20,8 @@ class EnterpriseServiceError(Exception):
 
 @dataclass
 class StreamingProfile:
+    """Streaming latency profile, all durations in seconds."""
+
     ttft_seconds: float
     tpot_seconds: float
     itl_p50_seconds: float
@@ -30,33 +32,22 @@ class StreamingProfile:
 
 @dataclass
 class OTelSpanRecord:
+    """Minimal OpenTelemetry GenAI span record."""
+
     name: str
     attributes: dict[str, Any] = field(default_factory=dict)
 
     def set_attribute(self, key: str, value: Any) -> None:
-        if key == "gen_ai.system":
-            raise ValueError("Deprecated 'gen_ai.system' is prohibited. Use 'gen_ai.provider.name'.")
-        if any(c in key.lower() for c in ["cost", "price", "usd", "cents"]):
-            raise ValueError(f"Financial cost attribute '{key}' is forbidden inside OTel span.")
-        self.attributes[key] = value
+        """Store an attribute, rejecting deprecated or financial-cost keys with ValueError.
+
+        The deprecated key 'gen_ai.system' must raise ValueError whose message
+        starts with "Deprecated 'gen_ai.system'". Cost/price attributes are forbidden.
+        """
+        raise NotImplementedError("Implement span attribute validation")
 
 
 class EnterpriseInferenceService:
-    DEFAULT_PRICING = {
-        "version": "2026.01",
-        "models": {
-            "agentik-reason-70b": {
-                "input_usd_per_m": 3.00,
-                "output_usd_per_m": 12.00,
-                "cache_read_usd_per_m": 0.50,
-            },
-            "agentik-fast-8b": {
-                "input_usd_per_m": 0.50,
-                "output_usd_per_m": 1.50,
-                "cache_read_usd_per_m": 0.10,
-            },
-        },
-    }
+    """Streaming inference service with validation, tracing, sandboxing and evals."""
 
     def __init__(
         self,
@@ -64,9 +55,9 @@ class EnterpriseInferenceService:
         seed: int = 42,
         pricing_catalog: dict[str, Any] | None = None,
     ) -> None:
-        self.clock = clock or VirtualClock(initial_time=100.0)
+        self.clock = clock if clock is not None else VirtualClock(initial_time=100.0)
         self.seed = seed
-        self.pricing = pricing_catalog or self.DEFAULT_PRICING
+        self.pricing: dict[str, Any] = pricing_catalog or {}
         self.spans: list[OTelSpanRecord] = []
 
     def serialize_prompt(
@@ -75,12 +66,9 @@ class EnterpriseInferenceService:
         few_shots: list[dict[str, str]],
         user_input: str,
     ) -> tuple[str, str]:
-        sys_str = "\n".join(static_system_blocks)
-        shots_str = json.dumps(few_shots, sort_keys=True, ensure_ascii=False)
-        prefix = f"{sys_str}\n{shots_str}"
-        prefix_hash = hashlib.sha256(prefix.encode("utf-8")).hexdigest()
-        full_prompt = f"{prefix}\nUSER_QUERY:\n{user_input}"
-        return full_prompt, prefix_hash
+        """Return (full_prompt, prefix_hash) where the 64-char hex hash depends only
+        on the static prefix (system blocks + few-shots), never on user_input."""
+        raise NotImplementedError("Implement cache-friendly prompt serialization")
 
     def stream_inference(
         self,
@@ -92,87 +80,24 @@ class EnterpriseInferenceService:
         is_cache_hit: bool = False,
         generated_tokens: list[str] | None = None,
     ) -> dict[str, Any]:
-        full_prompt, prefix_hash = self.serialize_prompt(static_prefix_blocks, few_shots, user_input)
-        tokens = generated_tokens or ["The", " enterprise", " service", " is", " verified", "."]
+        """Simulate streaming on the injected clock and return a dict with keys
+        tenant_id, prefix_hash, tokens, profile (StreamingProfile), span
+        (OTelSpanRecord) and cost_usd.
 
-        start_time = self.clock.now()
-        ttft = 0.08 if is_cache_hit else 0.45
-        self.clock.sleep(ttft)
-        first_token_time = self.clock.now()
-
-        itl_intervals: list[float] = []
-        last_time = first_token_time
-        for _ in tokens[1:]:
-            interval = 0.018
-            self.clock.sleep(interval)
-            current_time = self.clock.now()
-            itl_intervals.append(current_time - last_time)
-            last_time = current_time
-
-        end_time = self.clock.now()
-        total_time = end_time - start_time
-        tpot = sum(itl_intervals) / len(itl_intervals) if itl_intervals else 0.0
-
-        itl_sorted = sorted(itl_intervals) if itl_intervals else [0.0]
-        p50 = itl_sorted[len(itl_sorted) // 2]
-        p95 = itl_sorted[int(len(itl_sorted) * 0.95)]
-
-        profile = StreamingProfile(
-            ttft_seconds=round(ttft, 4),
-            tpot_seconds=round(tpot, 4),
-            itl_p50_seconds=round(p50, 4),
-            itl_p95_seconds=round(p95, 4),
-            total_duration_seconds=round(total_time, 4),
-            token_count=len(tokens),
-        )
-
-        input_tokens = 1200
-        output_tokens = len(tokens)
-        cache_read_tokens = 1000 if is_cache_hit else 0
-
-        span = OTelSpanRecord(name=f"chat {model_name}")
-        span.set_attribute("gen_ai.operation.name", "chat")
-        span.set_attribute("gen_ai.provider.name", "agentik-enterprise")
-        span.set_attribute("gen_ai.request.model", model_name)
-        span.set_attribute("gen_ai.response.model", model_name)
-        span.set_attribute("gen_ai.usage.input_tokens", input_tokens)
-        span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
-        if cache_read_tokens > 0:
-            span.set_attribute("gen_ai.usage.cache_read.input_tokens", cache_read_tokens)
-        self.spans.append(span)
-
-        rates = self.pricing["models"].get(model_name, {"input_usd_per_m": 1.0, "output_usd_per_m": 2.0, "cache_read_usd_per_m": 0.2})
-        cost_in = (input_tokens / 1_000_000.0) * rates["input_usd_per_m"]
-        cost_out = (output_tokens / 1_000_000.0) * rates["output_usd_per_m"]
-        cost_cache = (cache_read_tokens / 1_000_000.0) * rates.get("cache_read_usd_per_m", 0.0)
-        cost_usd = round(cost_in + cost_out + cost_cache, 6)
-
-        return {
-            "tenant_id": tenant_id,
-            "prefix_hash": prefix_hash,
-            "tokens": tokens,
-            "profile": profile,
-            "span": span,
-            "cost_usd": cost_usd,
-        }
+        TTFT must be much lower on a cache hit; ITL p50/p95 must stay within the
+        budgets in README.md. The span uses current GenAI semconv attributes
+        (including cache-read tokens on a hit) and never contains cost data;
+        cost is computed outside the span from the pricing catalog.
+        """
+        raise NotImplementedError("Implement streaming inference with metrics, span and cost")
 
     def validate_business_output(self, raw_json_str: str) -> dict[str, Any]:
-        try:
-            parsed = json.loads(raw_json_str)
-        except json.JSONDecodeError as err:
-            return {"is_valid": False, "layer_failed": "syntax", "error": str(err)}
+        """Three-layer validation (syntax, schema, business_semantic).
 
-        if not isinstance(parsed, dict) or "action" not in parsed or "amount_cents" not in parsed:
-            return {"is_valid": False, "layer_failed": "schema", "error": "Missing required schema fields"}
-
-        if not isinstance(parsed["amount_cents"], int) or parsed["amount_cents"] <= 0:
-            return {
-                "is_valid": False,
-                "layer_failed": "business_semantic",
-                "error": "Amount in cents must be a positive integer.",
-            }
-
-        return {"is_valid": True, "layer_failed": None, "data": parsed}
+        Return {"is_valid": bool, "layer_failed": str | None, ...}. Payloads need
+        'action' and 'amount_cents'; amount_cents must be a positive integer.
+        """
+        raise NotImplementedError("Implement three-layer output validation")
 
     def execute_sandboxed_tool(
         self,
@@ -182,31 +107,14 @@ class EnterpriseInferenceService:
         is_confirmed_by_human: bool = False,
         container_flags: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        if requires_human_confirmation and not is_confirmed_by_human:
-            return {
-                "status": "APPROVAL_REQUIRED",
-                "is_error": True,
-                "message": f"Action '{tool_name}' is irreversible and requires explicit human confirmation.",
-            }
+        """Run a tool under a hardened container policy.
 
-        flags = container_flags or {
-            "network": "none",
-            "read_only": True,
-            "cap_drop": ["ALL"],
-            "user": "10001:10001",
-        }
-
-        if flags.get("network") != "none":
-            raise EnterpriseServiceError("Security violation: tool executed with open network", "NETWORK_NOT_ISOLATED")
-        if flags.get("user") in {"0", "root"}:
-            raise EnterpriseServiceError("Security violation: tool executed as root", "ROOT_FORBIDDEN")
-
-        return {
-            "status": "EXECUTED",
-            "is_error": False,
-            "tool_name": tool_name,
-            "output": f"Successfully executed {tool_name} with args {arguments}",
-        }
+        Unconfirmed irreversible actions return status "APPROVAL_REQUIRED" with
+        is_error True. Network-enabled containers raise EnterpriseServiceError
+        (message contains "tool executed with open network"); root users are also
+        rejected. Success returns status "EXECUTED" with is_error False.
+        """
+        raise NotImplementedError("Implement sandboxed tool execution")
 
     def evaluate_reliability_ci(
         self,
@@ -214,44 +122,19 @@ class EnterpriseInferenceService:
         threshold_ci_lower: float = 0.75,
         num_bootstrap: int = 1000,
     ) -> dict[str, Any]:
-        if not sample_scores:
-            raise ValueError("Evaluation scores sample cannot be empty.")
+        """Deterministic (seeded) 95% bootstrap CI over the scores.
 
-        rng = random.Random(self.seed)
-        n = len(sample_scores)
-        bootstrap_means: list[float] = []
-
-        for _ in range(num_bootstrap):
-            resample = [sample_scores[rng.randrange(n)] for _ in range(n)]
-            bootstrap_means.append(sum(resample) / float(n))
-
-        bootstrap_means.sort()
-        ci_lower = bootstrap_means[int(num_bootstrap * 0.025)]
-        ci_upper = bootstrap_means[int(num_bootstrap * 0.975)]
-        mean_score = sum(sample_scores) / float(n)
-
-        passed = ci_lower >= threshold_ci_lower
-
-        return {
-            "passed": passed,
-            "mean_score": round(mean_score, 4),
-            "ci_lower_95": round(ci_lower, 4),
-            "ci_upper_95": round(ci_upper, 4),
-            "threshold_ci_lower": threshold_ci_lower,
-        }
+        Return passed, mean_score, ci_lower_95, ci_upper_95, threshold_ci_lower.
+        Approval depends on the CI lower bound, not the mean. Empty input raises ValueError.
+        """
+        raise NotImplementedError("Implement bootstrap reliability evaluation")
 
 
 def validate_design_document(markdown_text: str) -> dict[str, Any]:
-    required_sections = [
-        "# Architecture & System Design",
-        "## Quantitative SLO Budgets",
-        "## Resilience & Rate Limiting",
-        "## Security & Containment Policy",
-        "## Evaluation Methodology & Acceptance Thresholds",
-    ]
-    missing = [sec for sec in required_sections if sec not in markdown_text]
-    return {
-        "is_valid": len(missing) == 0,
-        "missing_sections": missing,
-        "declared_budgets_present": "TTFT" in markdown_text and "ITL" in markdown_text and "bootstrap" in markdown_text,
-    }
+    """Validate DESIGN.md structure.
+
+    Return {"is_valid": bool, "missing_sections": list[str],
+    "declared_budgets_present": bool}. See README.md for the required sections
+    and the budgets that must be declared.
+    """
+    raise NotImplementedError("Implement DESIGN.md schema validation")
