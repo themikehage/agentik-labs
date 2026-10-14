@@ -51,10 +51,15 @@ jobs:
           ref: ${{ inputs.commit_sha }}
 
       - name: Download official hidden test suite
-        if: ${{ secrets.AGENTIK_SUITE_TOKEN != '' }}
+        env:
+          AGENTIK_SUITE_TOKEN: ${{ secrets.AGENTIK_SUITE_TOKEN }}
         run: |
-          mkdir -p tests/hidden
-          git clone --depth 1 https://x-access-token:${{ secrets.AGENTIK_SUITE_TOKEN }}@github.com/themikehage/agentik-hidden-suite.git tests/hidden/suite
+          if [ -n "$AGENTIK_SUITE_TOKEN" ]; then
+            mkdir -p tests/hidden
+            git clone --depth 1 https://x-access-token:${AGENTIK_SUITE_TOKEN}@github.com/themikehage/agentik-hidden-suite.git tests/hidden/suite
+          else
+            echo "Sin AGENTIK_SUITE_TOKEN: se usan los tests commiteados en el repo."
+          fi
 
       - name: Set up uv
         uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
