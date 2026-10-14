@@ -14,7 +14,7 @@ jobs:
   attest:
     name: Attest Official Capstone
     if: github.repository != 'themikehage/agentik-labs'
-    uses: themikehage/agentik-labs/.github/workflows/certify.yml@aa6ef9df828a41b1b7f82dd9d1a4d3062d5a3e4c
+    uses: themikehage/agentik-labs/.github/workflows/certify.yml@123995823a8fb16ed15bd3836751b2cdc3798071
     with:
       course_id: mcp-expert
       student_repo: ${{ github.repository }}
